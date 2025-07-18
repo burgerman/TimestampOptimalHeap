@@ -261,8 +261,7 @@ public:
     void insert(const T& value) {
         auto it = value_to_node.find(value);
         if (it != value_to_node.end()) {
-            // Value already exists, treat as decrease-key
-            decrease_key(value, value);
+            // val already exists
             return;
         }
 
@@ -284,8 +283,7 @@ public:
     void decrease_key(const T& old_value, const T& new_value) {
         auto it = value_to_node.find(old_value);
         if (it == value_to_node.end()) {
-            // Value not found, treat as insert
-            insert(new_value);
+            // val doesn't exists
             return;
         }
 
@@ -619,7 +617,7 @@ public:
     void insert(const std::pair<T1, T2>& value) {
         auto it = value_to_node.find(value);
         if (it != value_to_node.end()) {
-            decrease_key(value, value);
+            // val already exists
             return;
         }
 
@@ -638,7 +636,7 @@ public:
     void decrease_key(const std::pair<T1, T2>& old_value, const std::pair<T1, T2>& new_value) {
         auto it = value_to_node.find(old_value);
         if (it == value_to_node.end()) {
-            insert(new_value);
+            // val not exists
             return;
         }
 
@@ -752,22 +750,22 @@ int main() {
 
     // Test O(1) insert
     auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 10000; ++i) {
-        heap.insert(rand() % 50000);
+    for (int i = 0; i < 100000; ++i) {
+        heap.insert(rand() % 500000);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "10000 inserts in " << duration.count() << " microseconds" << std::endl;
+    std::cout << "100,000 inserts in " << duration.count() << " microseconds" << std::endl;
 
     // Test O(1) top operation
     start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         volatile int min_val = heap.top();  // volatile to prevent optimization
         (void)min_val;  // suppress unused variable warning
     }
     end = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "1000 top() calls in " << duration.count() << " microseconds" << std::endl;
+    std::cout << "10,000 top() calls in " << duration.count() << " microseconds" << std::endl;
 
     // Test decrease-key performance
     std::vector<int> values;
@@ -780,7 +778,7 @@ int main() {
     start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 500; ++i) {
         int old_val = values[i];
-        int new_val = old_val - 1000;  // Make it smaller
+        int new_val = (old_val - 1000)>0?(old_val - 1000) : (old_val/2);  // Make it smaller
         if (heap.contains(old_val)) {
             heap.decrease_key(old_val, new_val);
             values[i] = new_val;
@@ -792,23 +790,18 @@ int main() {
 
     // Test extract-min with working set bounds
     std::cout << "\n=== Testing O(log w) Extract-Min ===" << std::endl;
-
-    TimestampOptimalHeap<std::pair<int, int>> dijkstra_heap;
-
-    // Insert many elements
-    for (int i = 0; i < 1000; ++i) {
-        dijkstra_heap.insert({rand() % 10000, i});
-    }
-
-    // Extract first few elements and measure working set size
-    for (int i = 0; i < 10; ++i) {
-        if (!dijkstra_heap.empty()) {
-            auto [dist, vertex] = dijkstra_heap.extract_min();
-            std::cout << "Extracted (" << dist << "," << vertex
-                      << ") - Working set size: " << dijkstra_heap.get_current_working_set_size()
-                      << ", Num roots: " << dijkstra_heap.get_num_roots() << std::endl;
+    for (int i = 0; i < 20; ++i) {
+        if (!heap.empty()) {
+            start = std::chrono::high_resolution_clock::now();
+            auto min_val = heap.extract_min();
+            end = std::chrono::high_resolution_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            std::cout << "Extracted ( Min Value: " << min_val
+                      << ") - Working set size: " << heap.get_current_working_set_size()
+                      << ", Num roots: " << heap.get_num_roots()
+                      << ", Heap size: " << heap.size() << std::endl;
+            std::cout << "extract_min operation in " << duration.count() << " microseconds" << std::endl;
         }
     }
-
     return 0;
 }
