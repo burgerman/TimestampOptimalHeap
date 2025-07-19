@@ -63,6 +63,17 @@ This is not a standard binary or Fibonacci heap. The design blends a couple of a
 
 ---
 
+## 📊 Complexity Analysis
+
+| Operation       | Implementation  | Paper Idea | Alignment |
+|-----------------|-----------------|------------|-----------|
+| insert          | O(1)    | O(1)       | ✓         |
+| decrease_key    | O(1)    | O(1)       | ✓         |
+| extract_min     | O(log w) | O(log w)   | ✓         |
+| get_min/pop_min | O(1)            | O(1)       | ✓         |
+
+---
+
 ## 🚀 Features
 
 - ✅ **Generic & Templated:**  
