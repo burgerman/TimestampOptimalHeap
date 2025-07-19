@@ -91,8 +91,11 @@ namespace std {
     template<typename NodeId, typename Weight>
     struct hash<HeapEntry<NodeId, Weight>> {
     std::size_t operator()(const HeapEntry<NodeId, Weight>& entry) const {
-        return std::hash<Weight>()(entry.distance) ^
-               (std::hash<NodeId>()(entry.node) << 1);
+        // Better hash combining, using both low and high bits of h2
+        // Lower potential for hash collisions
+        std::size_t h1 = std::hash<Weight>()(entry.distance);
+        std::size_t h2 = std::hash<NodeId>()(entry.node);
+        return h1 ^ (h2 << 1) ^ (h2 >> (sizeof(std::size_t) * 8 - 1));
     }
     };
 }

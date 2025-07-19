@@ -84,15 +84,15 @@ void func_perform_test() {
     // Test decrease-key performance
     std::vector<int> values;
     for (std::size_t i = 0; i < 1000; ++i) {
-        int val = rand() % 100000;
+        std::size_t val = rand() % 100000;
         heap.insert(val);
         values.push_back(val);
     }
 
     start = std::chrono::high_resolution_clock::now();
     for (std::size_t i = 0; i < 500; ++i) {
-        int old_val = values[i];
-        int new_val = (old_val - 1000)>0?(old_val - 1000) : (old_val/2);  // Make it smaller
+        std::size_t old_val = values[i];
+        std::size_t new_val = (old_val - 1000)>0?(old_val - 1000) : (old_val/2);  // Make it smaller
         if (heap.contains(old_val)) {
             heap.decrease_key(old_val, new_val);
             values[i] = new_val;

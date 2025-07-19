@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstddef>
+#include <memory>
+
 template<typename T, typename Compare = std::less<T>>
 // Implements a Timestamp-based Optimal Heap, a variant of a Fibonacci Heap.
 // This data structure is optimized for scenarios where the working set of elements
@@ -29,6 +31,17 @@ private:
                 : value(val), timestamp(ts), rank(0), marked(false),
                   parent(nullptr), child(nullptr), left_sibling(this), right_sibling(this) {
         }
+        // Enable move version of constructor for optimization
+        Node(T&& val, std::size_t ts)
+                : value(std::move(val)), timestamp(ts), rank(0), marked(false),
+                  parent(nullptr), child(nullptr), left_sibling(this), right_sibling(this) {
+        }
+    };
+
+    struct HeapStatistics {
+        std::size_t total_operations = 0;
+        std::size_t max_working_set_size = 0;
+        std::size_t consolidation_count = 0;
     };
 
     // Maps values to their corresponding nodes for O(1) average time access.
@@ -44,9 +57,14 @@ private:
     // min_node_ptr points to the node with the highest priority (minimum value).
     Node* min_node_ptr;
 
+    // Calculate based on insertion_order and extract_count
+    std::size_t current_working_set_size() const noexcept{
+        return insertion_order.size() - extract_count;
+    }
+
     // Determines if node 'a' has higher priority than node 'b'.
     // Tie-breaks using the timestamp to favor older elements.
-    bool has_priority(const Node* a, const Node* b) const {
+    bool has_priority(const Node* a, const Node* b) const noexcept{
         if (comp(a->value, b->value)) return true;
         if (comp(b->value, a->value)) return false;
         return a->timestamp < b->timestamp;
@@ -251,20 +269,57 @@ public:
     TimestampOptimalHeap& operator=(const TimestampOptimalHeap& other) = delete;
 
     // Inserts a new value into the heap. Amortized O(1) time.
-    void insert(const T& value) {
+//    void insert(const T& value) {
+//        if (value_to_node.count(value)) {
+//            return; // Value already exists.
+//        }
+//        Node* new_node = new Node(value, current_timestamp);
+//        insertion_order.push_back(current_timestamp);
+//        current_timestamp++;
+//        add_to_root_list(new_node);
+//        value_to_node[value] = new_node;
+//    }
+
+    // Leverage Move Semantics to avoid expensive copies and reduce overall overhead
+    void insert(T&& value) {
         if (value_to_node.count(value)) {
             return; // Value already exists.
         }
-        Node* new_node = new Node(value, current_timestamp);
+        T value_copy = value;
+        Node* new_node = new Node(std::move(value), current_timestamp);
         insertion_order.push_back(current_timestamp);
         current_timestamp++;
         add_to_root_list(new_node);
-        value_to_node[value] = new_node;
+        value_to_node[std::move(value_copy)] = new_node;
     }
 
     // Decreases the key of an existing element. Amortized O(1) time.
     // The element is moved to the root list, and its timestamp is updated.
-    void decrease_key(const T& old_value, const T& new_value) {
+//    void decrease_key(const T& old_value, const T& new_value) {
+//        auto it = value_to_node.find(old_value);
+//        if (it == value_to_node.end()) {
+//            return; // Value doesn't exist.
+//        }
+//
+//        Node* node = it->second;
+//        value_to_node.erase(it);
+//        node->value = new_value;
+//        value_to_node[new_value] = node;
+//
+//        node->timestamp = current_timestamp;
+//        insertion_order.push_back(current_timestamp);
+//        current_timestamp++;
+//
+//        if (node->parent != nullptr && has_priority(node, node->parent)) {
+//            cut_node(node);
+//        }
+//        if (has_priority(node, min_node_ptr)) {
+//            min_node_ptr = node;
+//        }
+//    }
+
+    // Move version
+    void decrease_key(T&& old_value, T&& new_value) {
         auto it = value_to_node.find(old_value);
         if (it == value_to_node.end()) {
             return; // Value doesn't exist.
@@ -272,8 +327,12 @@ public:
 
         Node* node = it->second;
         value_to_node.erase(it);
-        node->value = new_value;
-        value_to_node[new_value] = node;
+
+        // Keep a copy of new_value for the map key
+        T new_value_copy = new_value;
+
+        node->value = std::move(new_value);
+        value_to_node[std::move(new_value_copy)] = node;
 
         node->timestamp = current_timestamp;
         insertion_order.push_back(current_timestamp);
@@ -296,21 +355,21 @@ public:
 
         Node* min_node = min_node_ptr;
         T min_value = min_node->value;
+        // Use RAII wrapper to ensure exception safety
+        // unique_ptr(a scope guard), even if an exception is thrown before release(), it won't cause memory leak
+        std::unique_ptr<Node> node_guard(min_node);
         value_to_node.erase(min_value);
-
         remove_from_root_list(min_node);
         if (min_node->child != nullptr) {
             merge_children_to_root_list(min_node);
         }
-
         delete min_node;
         extract_count++;
-
         if (min_node_ptr != nullptr) {
             meld();
             update_min_node_ptr();
         }
-
+        node_guard.release();
         return min_value;
     }
 
