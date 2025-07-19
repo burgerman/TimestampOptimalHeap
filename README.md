@@ -18,14 +18,11 @@ Inspired by the research breakthroughs in:
 
 ## 📜 Background
 
-Traditional priority queues (binary-heap data structure) provide `O(log n)` amortized time for insert and delete operations. 
-While this is efficient in small problems, it is believed a bottleneck for real-world graph searching problems, 
-where node access patterns often show **temporal locality**.
-
-These papers introduce a new heap structure that utilizes the **working-set property**,
-in order to limit the overhead of getting the min value from a min heap after removing it from the heap.
-- The key idea is that the cost of deleting the min node is logarithmic in the number of nodes inserted after it, but before it is deleted, instead of logarithmic in the size of the heap when the node is deleted. This makes use of locality in the heap operations to achieve universal optimality.
-- Unlike Multi-Level Dijkstra with Contraction Hierarchies in Open Source Routing Machine (OSRM), working based on the cached order, this solution doesn't require preprocessing.
+- Traditional priority queues, such as Min-heap and Max-heap(binary-heap data structure), achieved `O(log n)` amortized time for both insert and delete operations. By contrast, Fibonacci heaps outperform by achieving amortized `O(1)` time for get_min, insert, meld, and decrease_key operations. However, the amortized time of extract_min was still a pain point in the prod env, which cost `O(log n)` time. While this is considered efficient enough for smaller problems, it is a bottleneck for real-world problems in large-scale graph searching. 
+- In recent studies, the research groups have revealed that node access patterns often exhibit **temporal locality** in many cases where the same or neighboring nodes are very likely to be accessed within short time spans. Based on this finding, researchers proposed a more advanced heap structure to maximize regional optimization over time and avoid the occurrence of the worst case. The idea is similar to some of today's caching mechanisms, where data is logically separated into 'Hot' and 'Cold' during computing. And this heap is able to pay closer attention to those important data nodes(frequently visited ones) in a dynamic graph, rather than wasting time sorting out the entire heap.
+- Specifically, in these papers, the novel heap structure that utilizes the **working-set property**(prioritize recently accessed nodes) and **Timestamp**(help track and manage node access efficiently) can minimize the cost of getting the min value from a min heap after removing it from the heap(due to maintaining the overall heap structure and its properties). 
+- The key idea is that the cost of deleting the min node is logarithmic in the number of nodes inserted after it, but before it is deleted, instead of logarithmic in the size of the heap when the node is deleted, which makes use of locality in the heap operations to achieve universal optimality.
+- Unlike Multi-Level Dijkstra with Contraction Hierarchies in Open Source Routing Machine (OSRM), working based on the cached order, this solution doesn't require static and computational preprocessing.
 ## Goals:
 - 🧮 **Insert:** Amortized `O(1)` time
 - 🔁 **Decrease-Key:** Amortized `O(1)` time
