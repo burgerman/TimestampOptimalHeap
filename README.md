@@ -1,5 +1,7 @@
 # ⏱️ Timestamp-Optimal Heap
 
+![Timestamp-Optimal Heap Overview](images/toh.png "Timestamp-Optimal Heap")
+
 A C++ implementation of a **Timestamp-Optimal Heap** — a custom priority queue designed to replace the traditional Fibonacci heap,
 exploiting **temporal locality** in practical settings of finding the shortest path in Dijkstras's algo.
 The main goal is to **accelerate algorithms like Dijkstra’s** by avoiding **worst case**.
