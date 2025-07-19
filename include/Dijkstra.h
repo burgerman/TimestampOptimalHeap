@@ -6,17 +6,24 @@
 #include <limits>
 #include <iostream>
 template<typename NodeId = int, typename Weight = double>
+// Stores the results of a Dijkstra's algorithm run, including distances and paths.
 class DijkstraResult {
 public:
+    // Maps each reachable node to its shortest distance from the source.
     std::unordered_map<NodeId, Weight> distances;
+    // Maps each node to its predecessor in the shortest path tree.
     std::unordered_map<NodeId, NodeId> predecessors;
+    // The source node for the Dijkstra run.
     NodeId source;
+    // Flag indicating if the target was found (for single-target searches).
     bool found_target;
+    // The target node for the Dijkstra run (if applicable).
     NodeId target;
 
     DijkstraResult(NodeId src) : source(src), found_target(false) {}
 
-    // Get shortest path to a specific target
+    // Reconstructs and returns the shortest path from the source to a given destination node.
+    // Returns an empty vector if the destination is not reachable.
     std::vector<NodeId> get_path_to(NodeId dest) const {
         std::vector<NodeId> path;
 
@@ -25,7 +32,7 @@ public:
             return path; // Empty path means unreachable
         }
 
-        // Reconstruct path backwards
+        // Reconstruct path backwards from destination to source
         NodeId current = dest;
         while (current != source) {
             path.push_back(current);
@@ -42,27 +49,30 @@ public:
         return path;
     }
 
-    // Get distance to a specific node
+    // Returns the shortest distance to a specific destination node.
+    // Returns infinity if the node is not reachable.
     Weight get_distance_to(NodeId dest) const {
         auto it = distances.find(dest);
         return (it != distances.end()) ? it->second : std::numeric_limits<Weight>::infinity();
     }
 
-    // Check if a node is reachable
+    // Checks if a given destination node is reachable from the source.
     bool is_reachable(NodeId dest) const {
         return distances.find(dest) != distances.end();
     }
 };
 
 template<typename NodeId = int, typename Weight = double>
-// Priority queue entry for the heap
+// Represents an entry in the priority queue for Dijkstra's algorithm.
+// It contains the node ID and its current known shortest distance from the source.
 struct HeapEntry {
     Weight distance;
     NodeId node;
 
     HeapEntry(Weight d, NodeId n) : distance(d), node(n) {}
 
-    // For the heap's comparison - we want min-heap behavior
+    // Comparison operator for the min-heap. It prioritizes smaller distances.
+    // Node IDs are used as a tie-breaker to ensure a consistent ordering.
     bool operator<(const HeapEntry& other) const {
         if (distance != other.distance) {
             return distance < other.distance;
@@ -77,21 +87,23 @@ struct HeapEntry {
 
 
 namespace std {
+    // Custom hash function for HeapEntry to allow its use in unordered maps/sets.
     template<typename NodeId, typename Weight>
     struct hash<HeapEntry<NodeId, Weight>> {
     std::size_t operator()(const HeapEntry<NodeId, Weight>& entry) const {
         return std::hash<Weight>()(entry.distance) ^
                (std::hash<NodeId>()(entry.node) << 1);
     }
-};
+    };
 }
 
 template<typename NodeId = int, typename Weight = double>
+// Provides an optimized implementation of Dijkstra's algorithm using a TimestampOptimalHeap.
 class OptimalDijkstra {
 
 public:
     using Entry = HeapEntry<NodeId, Weight>;
-    // Single-source shortest paths to all reachable nodes
+    // Computes the shortest paths from a single source node to all other reachable nodes in the graph.
     static DijkstraResult<NodeId, Weight> shortest_paths(
             const Graph<NodeId, Weight>& graph,
             NodeId source) {
@@ -111,7 +123,7 @@ public:
             Weight current_dist = current_entry.distance;
 
             // Skip if already processed (can happen due to decrease-key operations)
-            if (visited.find(current) != visited.end()) {
+            if (visited.count(current)) {
                 continue;
             }
 
@@ -124,25 +136,13 @@ public:
                 Weight new_distance = current_dist + edge_weight;
 
                 // Skip if neighbor already processed
-                if (visited.find(neighbor) != visited.end()) {
+                if (visited.count(neighbor)) {
                     continue;
                 }
 
-                bool should_update = false;
-                Weight old_distance = std::numeric_limits<Weight>::infinity();
+                Weight old_distance = result.get_distance_to(neighbor);
 
-                auto dist_it = result.distances.find(neighbor);
-                if (dist_it == result.distances.end()) {
-                    // First time seeing this neighbor
-                    should_update = true;
-                } else {
-                    old_distance = dist_it->second;
-                    if (new_distance < old_distance) {
-                        should_update = true;
-                    }
-                }
-
-                if (should_update) {
+                if (new_distance < old_distance) {
                     // Update distance and predecessor
                     result.distances[neighbor] = new_distance;
                     result.predecessors[neighbor] = current;
@@ -150,9 +150,7 @@ public:
                     // Add/update in priority queue
                     if (old_distance != std::numeric_limits<Weight>::infinity()) {
                         // Use decrease-key operation
-                        Entry old_entry(old_distance, neighbor);
-                        Entry new_entry(new_distance, neighbor);
-                        pq.decrease_key(old_entry, new_entry);
+                        pq.decrease_key(Entry(old_distance, neighbor), Entry(new_distance, neighbor));
                     } else {
                         // Insert new entry
                         pq.insert(Entry(new_distance, neighbor));
@@ -164,7 +162,8 @@ public:
         return result;
     }
 
-    // Single-source, single-target shortest path (early termination)
+    // Computes the shortest path from a source to a specific target node.
+    // This version includes an early exit optimization to stop once the target is reached.
     static DijkstraResult<NodeId, Weight> shortest_path(
             const Graph<NodeId, Weight>& graph,
             NodeId source,
@@ -193,7 +192,7 @@ public:
             Weight current_dist = current_entry.distance;
 
             // Skip if already processed
-            if (visited.find(current) != visited.end()) {
+            if (visited.count(current)) {
                 continue;
             }
 
@@ -212,31 +211,18 @@ public:
                 Weight new_distance = current_dist + edge_weight;
 
                 // Skip if neighbor already processed
-                if (visited.find(neighbor) != visited.end()) {
+                if (visited.count(neighbor)) {
                     continue;
                 }
 
-                bool should_update = false;
-                Weight old_distance = std::numeric_limits<Weight>::infinity();
+                Weight old_distance = result.get_distance_to(neighbor);
 
-                auto dist_it = result.distances.find(neighbor);
-                if (dist_it == result.distances.end()) {
-                    should_update = true;
-                } else {
-                    old_distance = dist_it->second;
-                    if (new_distance < old_distance) {
-                        should_update = true;
-                    }
-                }
-
-                if (should_update) {
+                if (new_distance < old_distance) {
                     result.distances[neighbor] = new_distance;
                     result.predecessors[neighbor] = current;
 
                     if (old_distance != std::numeric_limits<Weight>::infinity()) {
-                        Entry old_entry(old_distance, neighbor);
-                        Entry new_entry(new_distance, neighbor);
-                        pq.decrease_key(old_entry, new_entry);
+                        pq.decrease_key(Entry(old_distance, neighbor), Entry(new_distance, neighbor));
                     } else {
                         pq.insert(Entry(new_distance, neighbor));
                     }
