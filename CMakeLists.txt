@@ -32,8 +32,10 @@ target_include_directories(TimestampOptimalHeap INTERFACE
 target_compile_features(TimestampOptimalHeap INTERFACE cxx_std_17)
 
 # Main executable
-add_executable(main src/main.cpp
-        src/WorkSetHeap.cpp)
+add_executable(main src/main.cpp)
+
+target_link_libraries(main PRIVATE TimestampOptimalHeap)
+
 
 # Print build information
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
