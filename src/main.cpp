@@ -58,7 +58,7 @@ void example_dijkstra() {
 }
 
 void func_perform_test() {
-    TimestampOptimalHeap<int> heap(0.7f, 200'000);
+    TimestampOptimalHeap<int> heap(0.6f, 250'000);
 
     std::cout << "=== Testing O(1) Operations ===" << std::endl;
 

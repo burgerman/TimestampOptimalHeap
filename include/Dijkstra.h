@@ -90,12 +90,24 @@ namespace std {
     // Custom hash function for HeapEntry to allow its use in unordered maps/sets.
     template<typename NodeId, typename Weight>
     struct hash<HeapEntry<NodeId, Weight>> {
+        // Better avalanche effect - each XOR and multiply ops spreads bit changes throughout the result
+        // Proven constants - FNV constants are mathematically chosen to minimize collisions
+        // Sequential mixing - processes each hash value separately, preventing interference
+        // More thorough mixing - the multiply ops provide much better bit distribution than simple shifts
     std::size_t operator()(const HeapEntry<NodeId, Weight>& entry) const {
+        constexpr std::size_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
+        constexpr std::size_t FNV_PRIME = 1099511628211ULL;
         // Better hash combining, using both low and high bits of h2
         // Lower potential for hash collisions
         std::size_t h1 = std::hash<Weight>()(entry.distance);
         std::size_t h2 = std::hash<NodeId>()(entry.node);
-        return h1 ^ (h2 << 1) ^ (h2 >> (sizeof(std::size_t) * 8 - 1));
+
+        std::size_t result = FNV_OFFSET_BASIS;
+        result ^= h1;
+        result *= FNV_PRIME;
+        result ^= h2;
+        result *= FNV_PRIME;
+        return result;
     }
     };
 }
