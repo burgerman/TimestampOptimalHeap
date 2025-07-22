@@ -78,7 +78,7 @@ This is not a standard binary or Fibonacci heap. The design blends a couple of a
 ---
 
 ## 🚀 Features
-
+![Timestamp-Optimal Heap Feature Overview](images/toh_features.png "Timestamp-Optimal-Heap Features")
 - ✅ **Generic & Templated:**  
   `template<typename T, typename Compare>` supports any data type and custom comparison logic.
 
