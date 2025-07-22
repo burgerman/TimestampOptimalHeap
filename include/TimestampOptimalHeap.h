@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <cstddef>
 #include <memory>
+#include <deque>
 
 template<typename T, typename Compare = std::less<T>>
 // Implements a Timestamp-based Optimal Heap, a variant of a Fibonacci Heap.
@@ -50,8 +51,7 @@ private:
     std::size_t current_timestamp; // Monotonically increasing timestamp counter.
 
     // Data structures for tracking the working set.
-    std::vector<std::size_t> insertion_order;
-    std::size_t extract_count;
+    std::deque<std::size_t> active_timestamps;
 
     // The root list is a circular doubly-linked list.
     // min_node_ptr points to the node with the highest priority (minimum value).
@@ -59,7 +59,7 @@ private:
 
     // Calculate based on insertion_order and extract_count
     std::size_t current_working_set_size() const noexcept{
-        return insertion_order.size() - extract_count;
+        return active_timestamps.size();
     }
 
     // Determines if node 'a' has higher priority than node 'b'.
@@ -259,7 +259,11 @@ private:
     }
 
 public:
-    TimestampOptimalHeap() : current_timestamp(0), extract_count(0), min_node_ptr(nullptr) {}
+    TimestampOptimalHeap(float load_factor = 0.7f,
+                         std::size_t reserve_count = 700'000) : current_timestamp(0), min_node_ptr(nullptr) {
+        value_to_node.max_load_factor(load_factor);
+        value_to_node.reserve(reserve_count);
+    }
 
     ~TimestampOptimalHeap() {
         clear();
@@ -274,7 +278,7 @@ public:
 //            return; // Value already exists.
 //        }
 //        Node* new_node = new Node(value, current_timestamp);
-//        insertion_order.push_back(current_timestamp);
+//        active_timestamps.push_back(current_timestamp);
 //        current_timestamp++;
 //        add_to_root_list(new_node);
 //        value_to_node[value] = new_node;
@@ -287,7 +291,7 @@ public:
         }
         T value_copy = value;
         Node* new_node = new Node(std::move(value), current_timestamp);
-        insertion_order.push_back(current_timestamp);
+        active_timestamps.push_back(current_timestamp);
         current_timestamp++;
         add_to_root_list(new_node);
         value_to_node[std::move(value_copy)] = new_node;
@@ -307,7 +311,7 @@ public:
 //        value_to_node[new_value] = node;
 //
 //        node->timestamp = current_timestamp;
-//        insertion_order.push_back(current_timestamp);
+//        active_timestamps.push_back(current_timestamp);
 //        current_timestamp++;
 //
 //        if (node->parent != nullptr && has_priority(node, node->parent)) {
@@ -335,7 +339,7 @@ public:
         value_to_node[std::move(new_value_copy)] = node;
 
         node->timestamp = current_timestamp;
-        insertion_order.push_back(current_timestamp);
+        active_timestamps.push_back(current_timestamp);
         current_timestamp++;
 
         if (node->parent != nullptr && has_priority(node, node->parent)) {
@@ -364,7 +368,7 @@ public:
             merge_children_to_root_list(min_node);
         }
         delete min_node;
-        extract_count++;
+        active_timestamps.pop_front();
         if (min_node_ptr != nullptr) {
             meld();
             update_min_node_ptr();
@@ -411,9 +415,8 @@ public:
             }
         }
         value_to_node.clear();
-        insertion_order.clear();
+        active_timestamps.clear();
         current_timestamp = 0;
-        extract_count = 0;
         min_node_ptr = nullptr;
     }
 
